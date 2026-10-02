@@ -216,14 +216,8 @@ processors:
       metric:
         - IsMatch(name, "^(up|scrape_duration_seconds|scrape_samples_scraped|scrape_samples_post_metric_relabeling|scrape_series_added)$")
 
-  # Delete the deprecated OpenTelemetry semantic-convention attributes that the
-  # Prometheus receiver injects on every scrape target. Each one has a
-  # current-spelling twin carrying an identical value on the same series, and the
-  # twin is kept:
-  #
-  #   net.host.name -> server.address
-  #   net.host.port -> server.port
-  #   http.scheme   -> url.scheme
+  # Drop receiver-injected deprecated semconv attributes; their current-spelling
+  # twins (server.address, server.port, url.scheme) carry the same values and stay.
   transform/cw_k8s_ci_v0_drop_deprecated_semconv:
     error_mode: ignore
     metric_statements:
@@ -599,11 +593,8 @@ processors:
           - set(attributes["container"], resource.attributes["container"]) where resource.attributes["container"] != nil
           - set(attributes["pod"], resource.attributes["pod"]) where resource.attributes["pod"] != nil
           - set(attributes["namespace"], resource.attributes["namespace"]) where resource.attributes["namespace"] != nil
-      # Drop the resource-level raw copies. groupbyattrs moved them up here, the
-      # datapoint block above has already copied them back down, and the semantic
-      # convention names set in the first block carry the same values — so this
-      # level is a third billed copy of the same fact. Must run after the
-      # datapoint block: statement groups execute in declaration order.
+      # Drop the resource-level raw copies; the datapoint block above already copied
+      # them down. Must run after it — statement groups execute in declaration order.
       - context: resource
         statements:
           - delete_key(attributes, "container") where attributes["container"] != nil
@@ -635,10 +626,8 @@ processors:
           # Clean up leftover datapoint attributes not needed downstream.
           - delete_key(attributes, "Hostname") where attributes["Hostname"] != nil
           - delete_key(attributes, "pci_bus_id") where attributes["pci_bus_id"] != nil
-      # Drop the resource-level raw copies, now that the datapoint block above has
-      # copied them back down and the semantic convention names carry the same
-      # values. Must run after the datapoint block: statement groups execute in
-      # declaration order.
+      # Drop the resource-level raw copies; the datapoint block above already copied
+      # them down. Must run after it — statement groups execute in declaration order.
       - context: resource
         statements:
           - delete_key(attributes, "pod") where attributes["pod"] != nil
